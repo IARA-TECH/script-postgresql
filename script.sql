@@ -53,9 +53,9 @@ CREATE TABLE User_Account
  name VARCHAR(50) NOT NULL,  
  email VARCHAR(50) NOT NULL,  
  password VARCHAR(20) NOT NULL,  
- birth_date DATE NOT NULL,  
- gender_id INT NOT NULL,  
- role_id INT NOT NULL
+ birth_date DATE NOT NULL,
+ position VARCHAR(80) NOT NULL,
+ access_level INT NOT NULL CHECK (access_level > 0)
 ); 
 
 CREATE TABLE User_Account_Factory
@@ -64,14 +64,6 @@ CREATE TABLE User_Account_Factory
  user_account_uuid UUID NOT NULL,
  factory_id INT NOT NULL
 );
-
-CREATE TABLE Gender 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL
-); 
 
 CREATE TABLE Payment 
 ( 
@@ -92,6 +84,7 @@ CREATE TABLE Subscription
  deactivated_at TIMESTAMP,
  name VARCHAR(20) NOT NULL,  
  price MONEY NOT NULL,  
+ description TEXT NOT NULL,
  monthly_duration INT NOT NULL  
 ); 
 
@@ -108,26 +101,11 @@ CREATE TABLE Factory
  pk_id SERIAL PRIMARY KEY,  
  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
  deactivated_at TIMESTAMP,
+ name VARCHAR(20) NOT NULL,
  cnpj VARCHAR(14) NOT NULL,  
  domain VARCHAR(20) NOT NULL,  
- company_id INT NOT NULL,
  address_id INT NOT NULL
-); 
-
-CREATE TABLE Company 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- name VARCHAR(20) NOT NULL
-); 
-
-CREATE TABLE Role 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL
-); 
+);
 
 CREATE TABLE User_Account_Photo 
 ( 
@@ -135,35 +113,14 @@ CREATE TABLE User_Account_Photo
  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
  url_blob VARCHAR(100) NOT NULL,  
  user_account_uuid UUID NOT NULL 
-); 
-
-CREATE TABLE Shift 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL,  
- starts_at TIME NOT NULL,  
- ends_at TIME NOT NULL
-); 
-
-CREATE TABLE Sheet 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- reference_date DATE NOT NULL,  
- url_blob VARCHAR(100) NOT NULL,  
- shift_id INT NOT NULL,  
- created_by UUID NOT NULL,  
- validated_by UUID
-); 
+);  
 
 CREATE TABLE Address 
 ( 
  pk_id SERIAL PRIMARY KEY,  
  state VARCHAR(50) NOT NULL,  
  city VARCHAR(50) NOT NULL,  
- neighbourhood VARCHAR(50) NOT NULL,  
+ neighborhood VARCHAR(50) NOT NULL,  
  cep VARCHAR(8) NOT NULL,  
  building_number INT NOT NULL,  
  street VARCHAR(50) NOT NULL,  
@@ -189,7 +146,6 @@ ALTER TABLE User_Account_Factory ADD FOREIGN KEY(user_account_uuid) REFERENCES U
 ALTER TABLE User_Account_Factory ADD PRIMARY KEY (factory_id, user_account_uuid);
 ALTER TABLE Payment ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
 ALTER TABLE Payment ADD FOREIGN KEY(payment_method_id) REFERENCES Payment_Method (pk_id);
-ALTER TABLE Factory ADD FOREIGN KEY(company_id) REFERENCES Company (pk_id);
 ALTER TABLE Factory ADD FOREIGN KEY(address_id) REFERENCES Address (pk_id);
 ALTER TABLE User_Account ADD FOREIGN KEY(gender_id) REFERENCES Gender (pk_id);
 ALTER TABLE User_Account ADD FOREIGN KEY(role_id) REFERENCES Role (pk_id);
