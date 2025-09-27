@@ -13,97 +13,28 @@ ALTER DATABASE bd2ano SET TIMEZONE TO 'America/Sao_Paulo';
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 
+
 -- ======================================================================================
 -- DROPS
 -- ======================================================================================
+DROP TABLE IF EXISTS Daily_Active_Users CASCADE;
 DROP TABLE IF EXISTS Table_Log CASCADE;
-DROP TABLE IF EXISTS User_Account_Photo CASCADE;
-DROP TABLE IF EXISTS Factory CASCADE;
+DROP TABLE IF EXISTS Payment CASCADE;
 DROP TABLE IF EXISTS Payment_Method CASCADE;
 DROP TABLE IF EXISTS Subscription CASCADE;
-DROP TABLE IF EXISTS Payment CASCADE;
-DROP TABLE IF EXISTS Gender CASCADE;
+DROP TABLE IF EXISTS User_Account_Photo CASCADE;
+DROP TABLE IF EXISTS User_Account_Access_Type CASCADE;
 DROP TABLE IF EXISTS User_Account CASCADE;
-DROP TABLE IF EXISTS Address CASCADE;
-DROP TABLE IF EXISTS Daily_Active_Users CASCADE;
+DROP TABLE IF EXISTS Gender CASCADE;
 DROP TABLE IF EXISTS Access_Type CASCADE;
-DROP FUNCTION IF EXISTS trg_changed_at;
-DROP FUNCTION IF EXISTS trg_table_log;
-DROP FUNCTION IF EXISTS get_user_accounts_by_factory;
-DROP FUNCTION IF EXISTS get_factory_active_payment;
-DROP PROCEDURE IF EXISTS create_user_account_role;
-DROP PROCEDURE IF EXISTS create_payment;
-DROP PROCEDURE IF EXISTS create_daily_active_users;
+DROP TABLE IF EXISTS Address CASCADE;
+DROP TABLE IF EXISTS Factory CASCADE;
 
 
 
 -- ======================================================================================
 -- TABLES
 -- ======================================================================================
-CREATE TABLE User_Account 
-( 
- pk_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- changed_at TIMESTAMP,  
- deactivated_at TIMESTAMP,  
- name VARCHAR(50) NOT NULL,  
- email VARCHAR(50) NOT NULL UNIQUE,  
- password VARCHAR(100) NOT NULL,  
- date_of_birth DATE NOT NULL,  
- gender_id INT NOT NULL,
- user_manager_uuid UUID, 
- factory_id INT NOT NULL
-); 
-
-CREATE TABLE User_Account_Access_Type
-(
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- user_account_uuid UUID NOT NULL,
- access_type_id INT NOT NULL
-);
-
-CREATE TABLE Gender 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- deactivated_at TIMESTAMP,
- name VARCHAR(50) NOT NULL
-); 
-
-CREATE TABLE Payment 
-( 
- pk_id SERIAL PRIMARY KEY,  
- paid_at TIMESTAMP NOT NULL,  
- total NUMERIC(10,2) NOT NULL,  
- starts_at DATE NOT NULL,
- expires_on DATE NOT NULL,  
- is_active BOOLEAN NOT NULL,
- is_expired BOOLEAN NOT NULL,
- subscription_id INT NOT NULL,  
- user_account_uuid UUID NOT NULL,  
- factory_id INT NOT NULL,
- payment_method_id INT NOT NULL 
-); 
-
-CREATE TABLE Subscription 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL,
- description VARCHAR(200) NOT NULL,
- price NUMERIC(10,2) NOT NULL,  
- monthly_duration INT NOT NULL  
-); 
-
-CREATE TABLE Payment_Method 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
- deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL
-); 
-
 CREATE TABLE Factory 
 ( 
  pk_id SERIAL PRIMARY KEY,  
@@ -113,24 +44,7 @@ CREATE TABLE Factory
  cnpj VARCHAR(14) NOT NULL UNIQUE,  
  domain VARCHAR(20) NOT NULL, 
  description VARCHAR(200)
-);  
-
-CREATE TABLE Access_Type
-(
- pk_id SERIAL PRIMARY KEY,
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- deactivated_at TIMESTAMP,	
- name VARCHAR(20) NOT NULL,
- description VARCHAR(200) NOT NULL
 );
-
-CREATE TABLE User_Account_Photo 
-( 
- pk_id SERIAL PRIMARY KEY,  
- created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
- url_blob VARCHAR(100) NOT NULL,  
- user_account_uuid UUID NOT NULL 
-); 
 
 CREATE TABLE Address 
 ( 
@@ -143,6 +57,86 @@ CREATE TABLE Address
  building_number INT NOT NULL,  
  complement VARCHAR(50),
  factory_id INT NOT NULL
+);
+
+CREATE TABLE Access_Type
+(
+ pk_id SERIAL PRIMARY KEY,
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
+ deactivated_at TIMESTAMP,	
+ name VARCHAR(20) NOT NULL,
+ description VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE Gender 
+( 
+ pk_id SERIAL PRIMARY KEY,  
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+ deactivated_at TIMESTAMP,
+ name VARCHAR(50) NOT NULL
+); 
+
+CREATE TABLE User_Account 
+( 
+ pk_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),  
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
+ changed_at TIMESTAMP,  
+ deactivated_at TIMESTAMP,  
+ name VARCHAR(100) NOT NULL,  
+ email VARCHAR(100) NOT NULL UNIQUE,  
+ password VARCHAR(100) NOT NULL,  
+ date_of_birth DATE NOT NULL,  
+ gender_id INT NOT NULL,
+ user_manager_uuid UUID, 
+ factory_id INT NOT NULL
+);
+
+CREATE TABLE User_Account_Access_Type
+(
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+ user_account_uuid UUID NOT NULL,
+ access_type_id INT NOT NULL
+);
+
+CREATE TABLE User_Account_Photo 
+( 
+ pk_id SERIAL PRIMARY KEY,  
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
+ url_blob VARCHAR(100) NOT NULL,  
+ user_account_uuid UUID NOT NULL 
+);
+
+CREATE TABLE Subscription 
+( 
+ pk_id SERIAL PRIMARY KEY,  
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
+ deactivated_at TIMESTAMP,
+ name VARCHAR(50) NOT NULL,
+ description VARCHAR(200) NOT NULL,
+ price NUMERIC(10,2) NOT NULL,  
+ monthly_duration INT NOT NULL  
+); 
+
+CREATE TABLE Payment_Method 
+( 
+ pk_id SERIAL PRIMARY KEY,  
+ created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+ deactivated_at TIMESTAMP,
+ name VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE Payment 
+( 
+ pk_id SERIAL PRIMARY KEY,  
+ paid_at TIMESTAMP NOT NULL,  
+ total NUMERIC(10,2) NOT NULL,  
+ starts_at DATE NOT NULL,
+ expires_on DATE NOT NULL,  
+ is_active BOOLEAN NOT NULL,
+ is_expired BOOLEAN NOT NULL,
+ subscription_id INT NOT NULL,  
+ user_account_uuid UUID NOT NULL,  
+ payment_method_id INT NOT NULL 
 );
 
 CREATE TABLE Table_Log
@@ -167,18 +161,16 @@ CREATE TABLE Daily_Active_Users
 -- ======================================================================================
 -- RELATIONS
 -- ======================================================================================
+ALTER TABLE Address ADD FOREIGN KEY(factory_id) REFERENCES Factory (pk_id);
 ALTER TABLE User_Account ADD FOREIGN KEY (user_manager_uuid) REFERENCES User_Account(pk_uuid);
+ALTER TABLE User_Account ADD FOREIGN KEY(gender_id) REFERENCES Gender (pk_id);
 ALTER TABLE User_Account ADD FOREIGN KEY (factory_id) REFERENCES Factory(pk_id);
-ALTER TABLE Payment ADD FOREIGN KEY(subscription_id) REFERENCES Subscription (pk_id);
 ALTER TABLE User_Account_Access_Type ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
 ALTER TABLE User_Account_Access_Type ADD FOREIGN KEY(access_type_id) REFERENCES Access_Type (pk_id);
 ALTER TABLE User_Account_Access_Type ADD PRIMARY KEY (access_type_id, user_account_uuid);
-ALTER TABLE Payment ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
-ALTER TABLE Payment ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
-ALTER TABLE Payment ADD FOREIGN KEY(factory_id) REFERENCES Factory (pk_id);
-ALTER TABLE User_Account ADD FOREIGN KEY(gender_id) REFERENCES Gender (pk_id);
 ALTER TABLE User_Account_Photo ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
-ALTER TABLE Address ADD FOREIGN KEY(factory_id) REFERENCES Factory (pk_id);
+ALTER TABLE Payment ADD FOREIGN KEY(subscription_id) REFERENCES Subscription (pk_id);
+ALTER TABLE Payment ADD FOREIGN KEY(user_account_uuid) REFERENCES User_Account (pk_uuid);
 
 
 
@@ -187,7 +179,7 @@ ALTER TABLE Address ADD FOREIGN KEY(factory_id) REFERENCES Factory (pk_id);
 -- ======================================================================================
 CREATE INDEX user_acoount_name ON user_account (lower(name));
 CREATE INDEX user_account_email ON user_account (lower(email));
-CREATE INDEX user_account_deactivated_at ON user_account (deactivated_at);
+CREATE INDEX user_account_deactivated_at_null ON user_account (deactivated_at) WHERE deactivated_at IS NULL;
 CREATE INDEX user_account_photo_user_account_uuid ON user_account_photo (user_account_uuid);
 
 
@@ -207,10 +199,10 @@ RETURNS TABLE(
 ) LANGUAGE plpgsql AS $$
 BEGIN
 	RETURN QUERY (
-		SELECT f.pk_id, s.name as subscription_name, p.starts_at, p.expires_on, p.total 
-		FROM Factory f 
-		JOIN Payment p ON f.pk_id = p.factory_id 
+		SELECT p.factory_id, s.name as subscription_name, p.starts_at, p.expires_on, p.total 
+		FROM Payment p
 		JOIN Subscription s ON s.pk_id = p.subscription_id
+		JOIN User_Account ua on ua.pk_uuid = p.user_account_uuid
 		WHERE f.pk_id = input_factory_id AND p.is_active = true
 		LIMIT 1
 	);
