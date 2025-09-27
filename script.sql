@@ -29,6 +29,11 @@ DROP TABLE IF EXISTS Gender CASCADE;
 DROP TABLE IF EXISTS Access_Type CASCADE;
 DROP TABLE IF EXISTS Address CASCADE;
 DROP TABLE IF EXISTS Factory CASCADE;
+DROP FUNCTION IF EXISTS get_factory_active_payment;
+DROP FUNCTION IF EXISTS get_user_accounts_by_factory;
+DROP PROCEDURE IF EXISTS create_payment;
+DROP PROCEDURE IF EXISTS create_user_account;
+DROP PROCEDURE IF EXISTS create_daily_active_users;
 
 
 
