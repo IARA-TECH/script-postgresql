@@ -33,7 +33,10 @@ DROP FUNCTION IF EXISTS get_factory_active_payment;
 DROP FUNCTION IF EXISTS get_user_accounts_by_factory;
 DROP PROCEDURE IF EXISTS create_payment;
 DROP PROCEDURE IF EXISTS create_user_account;
+DROP PROCEDURE IF EXISTS create_user_account_photo;
 DROP PROCEDURE IF EXISTS create_daily_active_users;
+DROP FUNCTION IF EXISTS trg_table_log;
+DROP FUNCTION IF EXISTS trg_changed_at;
 
 
 
@@ -61,7 +64,7 @@ CREATE TABLE Address
  street VARCHAR(50) NOT NULL,  
  building_number INT NOT NULL,  
  complement VARCHAR(50),
- factory_id INT NOT NULL
+ factory_id INT NOT NULL UNIQUE
 );
 
 CREATE TABLE Access_Type
@@ -108,7 +111,7 @@ CREATE TABLE User_Account_Photo
  pk_id SERIAL PRIMARY KEY,  
  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
  url_blob VARCHAR(100) NOT NULL,  
- user_account_uuid UUID NOT NULL 
+ user_account_uuid UUID NOT NULL UNIQUE
 );
 
 CREATE TABLE Subscription 
@@ -367,6 +370,27 @@ BEGIN
         VALUES (input_url_blob,returned_user_account_uuid);
 		RAISE NOTICE 'Foto de usuário criada com sucesso';
     END IF;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE create_user_account_photo(
+	input_user_account_uuid UUID,
+	input_url_blob VARCHAR
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF NOT EXISTS (SELECT pk_uuid FROM User_Account WHERE pk_uuid = input_user_account_uuid AND deactivated_at IS NULL) THEN
+        RAISE EXCEPTION 'Usuário não encontrado ou desativado';
+    END IF;
+	
+	IF EXISTS (SELECT pk_id FROM User_Account_Photo where user_account_uuid = input_user_account_uuid) THEN
+		RAISE EXCEPTION 'Usuário já possui foto de perfil';
+	END IF;
+	
+	INSERT INTO User_Account_Photo (url_blob, user_account_uuid)
+    VALUES (input_url_blob, input_user_account_uuid);
+	RAISE NOTICE 'Foto de usuário criada com sucesso';
 END;
 $$;
 
