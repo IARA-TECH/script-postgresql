@@ -199,11 +199,11 @@ RETURNS TABLE(
 ) LANGUAGE plpgsql AS $$
 BEGIN
 	RETURN QUERY (
-		SELECT p.factory_id, s.name as subscription_name, p.starts_at, p.expires_on, p.total 
+		SELECT ua.factory_id, s.name as subscription_name, p.starts_at, p.expires_on, p.total 
 		FROM Payment p
 		JOIN Subscription s ON s.pk_id = p.subscription_id
 		JOIN User_Account ua on ua.pk_uuid = p.user_account_uuid
-		WHERE f.pk_id = input_factory_id AND p.is_active = true
+		WHERE ua.factory_id = input_factory_id AND p.is_active = true
 		LIMIT 1
 	);
 END;
@@ -223,23 +223,19 @@ RETURNS TABLE(
 	deactivated_at TIMESTAMP WITHOUT TIME ZONE, 
 	name varchar(50), 
 	email varchar(20), 
-	birth_date date, 
+	date_of_birth date, 
 	gender_id int, 
-	gender varchar(20),
-	role_id int,
-	role varchar(20)
+	gender varchar(20)
 )
 LANGUAGE plpgsql AS $$
 DECLARE
 	query TEXT;
 BEGIN
 	query := '
-		SELECT ua.pk_uuid, ua.created_at, ua.changed_at, ua.deactivated_at, ua.name, ua.email, ua.birth_date, ua.gender_id, g.name as gender, ua.role_id, r.name as role 
+		SELECT ua.pk_uuid, ua.created_at, ua.changed_at, ua.deactivated_at, ua.name, ua.email, ua.date_of_birth, ua.gender_id, g.name as gender
 		FROM User_Account ua
-		JOIN User_Account_Factory uac on ua.pk_uuid = uac.user_account_uuid
 		JOIN Gender g on g.pk_id = ua.gender_id
-		JOIN Role r on r.pk_id = ua.role_id
-		WHERE uac.factory_id = ' || quote_literal(input_factory_id);
+		WHERE ua.factory_id = ' || quote_literal(input_factory_id);
 	
 	IF (input_search IS NOT NULL) THEN
 		query := query || ' AND ((lower(ua.name) ILIKE ' || quote_literal(lower(input_search)) || ' OR lower(ua.email) ILIKE '|| quote_literal(lower(input_search)) ||'))';
@@ -255,7 +251,6 @@ BEGIN
 	RETURN QUERY EXECUTE query;
 END;
 $$;
-
 
 
 -- ======================================================================================
