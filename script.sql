@@ -259,8 +259,7 @@ $$;
 CREATE OR REPLACE PROCEDURE create_payment(
     input_user_account_uuid UUID,
     input_subscription_id INT,
-    input_payment_method INT,
-    input_factory_id INT
+    input_payment_method_id INT
 ) LANGUAGE plpgsql AS $$
 DECLARE
     calculated_starts_at DATE;
@@ -272,20 +271,12 @@ BEGIN
         RAISE EXCEPTION 'Usuário não encontrado ou desativado';
     END IF;
 
-    IF NOT EXISTS (SELECT r.pk_id FROM User_Account ua JOIN Role r ON r.pk_id = ua.role_id WHERE ua.pk_uuid = input_user_account_uuid AND r.name = 'Super Admin') THEN
+    IF NOT EXISTS (SELECT ua.pk_uuid FROM User_Account ua JOIN User_Account_Access_Type uaat ON ua.pk_uuid = uaat.user_account_uuid JOIN Access_Type at on at.pk_id = uaat.access_type_id WHERE at.name = 'Administrador') THEN
         RAISE EXCEPTION 'Usuário sem permissão';
     END IF;
 
-    IF NOT EXISTS (SELECT pk_id FROM Payment_Method WHERE pk_id = input_payment_method) THEN
+    IF NOT EXISTS (SELECT pk_id FROM Payment_Method WHERE pk_id = input_payment_method_id) THEN
         RAISE EXCEPTION 'Método de pagamento não encontrado';
-    END IF;
-
-    IF NOT EXISTS (SELECT pk_id FROM Factory WHERE pk_id = input_factory_id AND deactivated_at IS NULL) THEN
-        RAISE EXCEPTION 'Fábrica não encontrada ou desativada';
-    END IF;
-
-    IF NOT EXISTS (SELECT factory_id FROM user_account_factory WHERE user_account_uuid = input_user_account_uuid AND factory_id = input_factory_id) THEN
-        RAISE EXCEPTION 'Usuário não pertence a essa fábrica';
     END IF;
 
     calculated_total := (SELECT price FROM Subscription WHERE pk_id = input_subscription_id AND deactivated_at IS NULL);
@@ -294,7 +285,8 @@ BEGIN
         RAISE EXCEPTION 'Plano não encontrado ou desativado';
     END IF;
 
-    calculated_starts_at := (SELECT expires_on FROM payment WHERE factory_id = input_factory_id AND is_expired = FALSE ORDER BY expires_on DESC LIMIT 1);
+    calculated_starts_at := (SELECT p.expires_on FROM Payment p JOIN User_Account ua ON ua.pk_uuid = p.user_account_uuid
+	WHERE ua.factory_id = (SELECT factory_id FROM User_Account WHERE pk_uuid = input_user_account_uuid) AND p.is_expired = FALSE ORDER BY p.expires_on DESC LIMIT 1);
     calculated_is_active := FALSE;
 
     IF calculated_starts_at IS NULL THEN
@@ -304,8 +296,8 @@ BEGIN
 
     calculated_expires_on := (SELECT calculated_starts_at + (monthly_duration * interval '1 month') FROM Subscription WHERE pk_id = input_subscription_id AND deactivated_at IS NULL);
 
-    INSERT INTO payment (paid_at, total, starts_at, expires_on, is_active, is_expired, subscription_id, user_account_uuid, factory_id, payment_method_id) 
-	VALUES (current_timestamp, calculated_total, calculated_starts_at, calculated_expires_on, calculated_is_active, FALSE, input_subscription_id, input_user_account_uuid, input_factory_id, input_payment_method);
+    INSERT INTO payment (paid_at, total, starts_at, expires_on, is_active, is_expired, subscription_id, user_account_uuid, payment_method_id) 
+	VALUES (current_timestamp, calculated_total, calculated_starts_at, calculated_expires_on, calculated_is_active, FALSE, input_subscription_id, input_user_account_uuid, input_payment_method_id);
     RAISE NOTICE 'Pagamento realizado com sucesso';
 
 EXCEPTION
@@ -314,34 +306,62 @@ EXCEPTION
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE create_user_account_factory(
-    input_user_account_uuid UUID,
-    input_factory_id INT
+CREATE OR REPLACE PROCEDURE create_user_account(
+    input_name VARCHAR,
+    input_email VARCHAR,
+    input_password VARCHAR,
+    input_date_of_birth DATE,
+    input_gender_id INT,
+	input_factory_id INT,
+    input_user_manager_uuid UUID DEFAULT NULL,
+    input_access_types_ids INT[] DEFAULT NULL,        
+    input_url_blob VARCHAR DEFAULT NULL
 )
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    returned_user_account_uuid UUID;
+	input_access_type_id INT;
 BEGIN
-    IF NOT EXISTS (SELECT pk_id FROM Factory WHERE pk_id = input_factory_id AND deactivated_at is NULL) THEN
-        RAISE EXCEPTION 'Fábrica não encontrada ou desativada';
+	IF NOT EXISTS (SELECT pk_id FROM Gender WHERE pk_id = input_gender_id) THEN
+		RAISE EXCEPTION 'Gênero não encontrado ou desativado';
+	END IF;
+	
+	IF EXISTS(SELECT pk_uuid FROM User_Account WHERE email = input_email) THEN
+		RAISE EXCEPTION 'Email já cadastrado';
+	END IF;
+	
+	IF NOT EXISTS (SELECT pk_id FROM Factory WHERE pk_id = input_factory_id) THEN
+		RAISE EXCEPTION 'Fábrica não encontrada ou desativada';
+	END IF;
+	
+	IF (input_user_manager_uuid IS NOT NULL) AND NOT EXISTS(SELECT pk_uuid FROM User_Account WHERE pk_uuid = input_user_manager_uuid) THEN
+		RAISE EXCEPTION 'Usuário gestor não encontrado ou desativado';
+	END IF;
+	
+    INSERT INTO User_Account (name, email, password, date_of_birth, gender_id, user_manager_uuid, factory_id) 
+	VALUES (input_name, input_email, input_password, input_date_of_birth, input_gender_id, input_user_manager_uuid, input_factory_id)
+    RETURNING pk_uuid INTO returned_user_account_uuid;
+	RAISE NOTICE 'Usuário criado com sucesso';
+
+	IF (input_access_types_ids IS NOT NULL) THEN
+        FOREACH input_access_type_id IN ARRAY input_access_types_ids
+		LOOP
+			IF NOT EXISTS(SELECT pk_id FROM Access_Type at where at.pk_id = input_access_type_id) THEN
+				RAISE EXCEPTION 'Tipo de acesso % não encontrado ou desativado', input_access_type_id;
+			END IF;
+			
+			INSERT INTO User_Account_Access_Type(user_account_uuid, access_type_id)
+			VALUES (returned_user_account_uuid, input_access_type_id);
+		END LOOP;
+		RAISE NOTICE 'Tipos de acesso criados com sucesso';
     END IF;
 
-    IF NOT EXISTS (SELECT pk_uuid FROM User_Account WHERE pk_uuid = input_user_account_uuid AND deactivated_at is NULL) THEN
-        RAISE EXCEPTION 'Usuário não encontrado ou desativado';
+    IF (input_url_blob IS NOT NULL) THEN
+        INSERT INTO User_Account_Photo (url_blob, user_account_uuid)
+        VALUES (input_url_blob,returned_user_account_uuid);
+		RAISE NOTICE 'Foto de usuário criada com sucesso';
     END IF;
-
-    IF EXISTS (SELECT 1 FROM User_Account_Factory WHERE user_account_uuid = input_user_account_uuid AND factory_id = input_factory_id) THEN
-        RAISE EXCEPTION 'Este relacionamento já existe';
-    END IF;
-
-    IF EXISTS (SELECT 1 FROM User_Account_Factory WHERE user_account_uuid = input_user_account_uuid) THEN
-        RAISE EXCEPTION 'O usuário já pertence a uma fábrica';
-    END IF;
-
-    INSERT INTO User_Account_Factory (user_account_uuid, factory_id) VALUES (input_user_account_uuid, input_factory_id);
-    RAISE NOTICE 'Relacionamento criado com sucesso';
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Erro ao executar procedure: %', SQLERRM;
 END;
 $$;
 
