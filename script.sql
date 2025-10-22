@@ -72,7 +72,7 @@ CREATE TABLE Access_Type
  pk_id SERIAL PRIMARY KEY,
  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,  
  deactivated_at TIMESTAMP,	
- name VARCHAR(20) NOT NULL,
+ name VARCHAR(20) NOT NULL UNIQUE,
  description VARCHAR(200) NOT NULL
 );
 
@@ -130,7 +130,7 @@ CREATE TABLE Payment_Method
  pk_id SERIAL PRIMARY KEY,  
  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
  deactivated_at TIMESTAMP,
- name VARCHAR(20) NOT NULL
+ name VARCHAR(40) NOT NULL
 );
 
 CREATE TABLE Payment 
