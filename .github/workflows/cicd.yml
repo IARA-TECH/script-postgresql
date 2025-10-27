@@ -63,8 +63,8 @@ jobs:
           echo "Checking if main tables exist..."
           tables=("factory" "user_account" "payment" "subscription" "access_type")
           for t in "${tables[@]}"; do
-            exists=$(psql -h localhost -U postgres -d bd2ano -tAc "SELECT to_regclass('public.$t');")
-            if [ "$exists" = "public.$t" ]; then
+            exists=$(psql -h localhost -U postgres -d bd2ano -tAc "SELECT to_regclass('public.$t');" | xargs)
+            if [ "$exists" = "$t" ]; then
               echo "Table $t found!"
             else
               echo "Table $t was not created correctly!"
