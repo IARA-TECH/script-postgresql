@@ -61,13 +61,15 @@ jobs:
           PGPASSWORD: postgres
         run: |
           echo "Checking if main tables exist..."
-          tables=("Factory" "User_Account" "Payment" "Subscription" "Access_Type")
+          tables=("factory" "user_account" "payment" "subscription" "access_type")
           for t in "${tables[@]}"; do
-            exists=$(psql -h localhost -U postgres -d bd2ano -tAc "SELECT to_regclass('$t');")
-            if [ "$exists" = "$t" ]; then
+            exists=$(psql -h localhost -U postgres -d bd2ano -tAc "SELECT to_regclass('public.$t');")
+            if [ "$exists" = "public.$t" ]; then
               echo "Table $t found!"
             else
               echo "Table $t was not created correctly!"
+              echo "Showing all tables for debugging:"
+              psql -h localhost -U postgres -d bd2ano -c "\dt"
               exit 1
             fi
           done
